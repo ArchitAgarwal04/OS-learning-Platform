@@ -30,6 +30,12 @@ export default function NotesPage() {
       href: "/notes/cpu-scheduling",
     },
     {
+      title: "Disk Scheduling",
+      description: "FCFS, SSTF, SCAN, C-SCAN disk scheduling algorithms",
+      icon: <HardDrive className="h-5 w-5" />,
+      href: "/notes/disk-scheduling",
+    },
+    {
       title: "Process Management",
       description: "Process states, PCB, context switching, and process creation",
       icon: <FileText className="h-5 w-5" />,

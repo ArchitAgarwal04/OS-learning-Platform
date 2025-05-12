@@ -16,6 +16,9 @@ export default function Footer() {
           <Link href="/cpu-scheduling" className="text-xs hover:underline underline-offset-4">
             CPU Scheduling
           </Link>
+          <Link href="/disk-scheduling" className="text-xs hover:underline underline-offset-4">
+            Disk Scheduling
+          </Link>
           <Link href="/notes" className="text-xs hover:underline underline-offset-4">
             Notes
           </Link>

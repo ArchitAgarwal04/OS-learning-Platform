@@ -79,6 +79,12 @@ export default function Navbar() {
                     <span>CPU Scheduling</span>
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/disk-scheduling" className="flex items-center gap-2 cursor-pointer">
+                    <HardDrive className="h-4 w-4" />
+                    <span>Disk Scheduling</span>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/comparison" className="flex items-center gap-2 cursor-pointer">
@@ -115,6 +121,12 @@ export default function Navbar() {
                   <Link href="/notes/page-replacement" className="flex items-center gap-2 cursor-pointer">
                     <HardDrive className="h-4 w-4" />
                     <span>Page Replacement</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/notes/disk-scheduling" className="flex items-center gap-2 cursor-pointer">
+                    <HardDrive className="h-4 w-4" />
+                    <span>Disk Scheduling</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -172,6 +184,14 @@ export default function Navbar() {
             >
               <Cpu className="h-5 w-5" />
               <span>CPU Scheduling</span>
+            </Link>
+            <Link
+              href="/disk-scheduling"
+              className="flex items-center gap-2 p-2 hover:bg-muted rounded-md"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <HardDrive className="h-5 w-5" />
+              <span>Disk Scheduling</span>
             </Link>
             <Link
               href="/comparison"

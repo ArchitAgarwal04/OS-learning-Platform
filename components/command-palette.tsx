@@ -34,6 +34,67 @@ export function CommandPalette() {
     command()
   }
 
+  const pages = [
+    {
+      heading: "Visualizers",
+      items: [
+        {
+          title: "Page Replacement",
+          href: "/page-replacement",
+          description: "FIFO, LRU, and Optimal page replacement algorithms",
+          keywords: "page replacement memory management frames",
+        },
+        {
+          title: "CPU Scheduling",
+          href: "/cpu-scheduling",
+          description: "FCFS, SJF, and Round Robin scheduling algorithms",
+          keywords: "cpu scheduling process fcfs sjf rr round robin",
+        },
+        {
+          title: "Disk Scheduling",
+          href: "/disk-scheduling",
+          description: "FCFS, SSTF, SCAN, and C-SCAN disk scheduling algorithms",
+          keywords: "disk scheduling io head seek track cylinder elevator",
+        },
+      ],
+    },
+    {
+      heading: "Notes",
+      items: [
+        {
+          title: "Memory Management",
+          href: "/notes/memory-management",
+          description: "Virtual memory, paging, and memory allocation",
+        },
+        {
+          title: "CPU Scheduling",
+          href: "/notes/cpu-scheduling",
+          description: "Process scheduling algorithms and concepts",
+        },
+        {
+          title: "Page Replacement",
+          href: "/notes/page-replacement",
+          description: "Page replacement algorithms and page faults",
+        },
+        {
+          title: "Disk Scheduling",
+          href: "/notes/disk-scheduling",
+          description: "Disk scheduling algorithms and seek optimization",
+        },
+      ],
+    },
+    {
+      heading: "Tools",
+      items: [
+        {
+          title: "Algorithm Comparison",
+          href: "/comparison",
+          description: "Compare different algorithms side by side",
+        },
+      ],
+    },
+  ]
+
   return (
     <>
       <Button
@@ -57,6 +118,7 @@ export function CommandPalette() {
               Page Replacement
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => router.push("/cpu-scheduling"))}>CPU Scheduling</CommandItem>
+            <CommandItem onSelect={() => runCommand(() => router.push("/disk-scheduling"))}>Disk Scheduling</CommandItem>
             <CommandItem onSelect={() => runCommand(() => router.push("/notes"))}>Notes</CommandItem>
           </CommandGroup>
           <CommandSeparator />
@@ -73,6 +135,9 @@ export function CommandPalette() {
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => router.push("/notes/page-replacement"))}>
               Page Replacement Notes
+            </CommandItem>
+            <CommandItem onSelect={() => runCommand(() => router.push("/notes/disk-scheduling"))}>
+              Disk Scheduling Notes
             </CommandItem>
             <CommandItem onSelect={() => runCommand(() => router.push("/notes/process-management"))}>
               Process Management Notes

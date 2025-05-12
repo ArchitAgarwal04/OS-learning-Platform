@@ -2,6 +2,7 @@ import Hero from "@/components/hero"
 import FeatureSection from "@/components/feature-section"
 import { PageReplacementPreview } from "@/components/page-replacement-preview"
 import { CPUSchedulingPreview } from "@/components/cpu-scheduling-preview"
+import { DiskSchedulingPreview } from "@/components/disk-scheduling-preview"
 import NotesPreview from "@/components/notes-preview"
 import { AlgorithmComparison } from "@/components/algorithm-comparison"
 import { Button } from "@/components/ui/button"
@@ -29,9 +30,10 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-2">
+          <div className="grid gap-8 md:grid-cols-3">
             <PageReplacementPreview />
             <CPUSchedulingPreview />
+            <DiskSchedulingPreview />
           </div>
 
           <div className="mt-12 text-center">
