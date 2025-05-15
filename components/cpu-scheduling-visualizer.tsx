@@ -1,4 +1,6 @@
-"use client"
+'use client'
+
+'use client'
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -7,21 +9,56 @@ import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChevronRight, ChevronLeft, Play, Pause, RotateCcw, Plus, Trash } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-export function CPUSchedulingVisualizer({ algorithm = "fcfs" }) {
-  const [processes, setProcesses] = useState([
-    { id: "P1", arrivalTime: 0, burstTime: 5, color: "bg-blue-500" },
-    { id: "P2", arrivalTime: 1, burstTime: 3, color: "bg-green-500" },
-    { id: "P3", arrivalTime: 2, burstTime: 8, color: "bg-purple-500" },
-    { id: "P4", arrivalTime: 3, burstTime: 2, color: "bg-yellow-500" },
-  ])
+type Process = {
+  id: string
+  arrivalTime: number
+  burstTime: number
+  color?: string
+}
 
-  const [quantum, setQuantum] = useState(2)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [speed, setSpeed] = useState(1000) // ms between steps
-  const [schedule, setSchedule] = useState([])
-  const [stats, setStats] = useState({})
+type ScheduleItem = {
+  id: string
+  start: number
+  end: number
+  color?: string
+}
+
+type ProcessMetrics = {
+  pid: string
+  arrivalTime: number
+  burstTime: number
+  completionTime: number
+  turnaroundTime: number
+  waitingTime: number
+}
+
+type SimulationResult = {
+  schedule: ScheduleItem[]
+}
+
+export default function CPUSchedulingVisualizer() {
+  const [processes, setProcesses] = useState<Process[]>([])
+  const [schedule, setSchedule] = useState<ScheduleItem[]>([])
+  const [algorithm, setAlgorithm] = useState<string>("fcfs")
+  const [quantum, setQuantum] = useState<number>(2)
+  const [currentTime, setCurrentTime] = useState<number>(0)
+  const [isPlaying, setIsPlaying] = useState<boolean>(false)
+  const [readyQueue, setReadyQueue] = useState<Process[]>([])
+  const [showTableDialog, setShowTableDialog] = useState<boolean>(false)
+
+  // Initialize default processes
+  useEffect(() => {
+    if (processes.length === 0) {
+      const defaultProcesses: Process[] = [
+        { id: "P1", arrivalTime: 0, burstTime: 4, color: "bg-blue-500" },
+        { id: "P2", arrivalTime: 1, burstTime: 3, color: "bg-green-500" },
+        { id: "P3", arrivalTime: 2, burstTime: 5, color: "bg-purple-500" },
+      ];
+      setProcesses(defaultProcesses);
+    }
+  }, []); // Run only once on mount
 
   // Colors for processes
   const colors = [
@@ -35,106 +72,150 @@ export function CPUSchedulingVisualizer({ algorithm = "fcfs" }) {
     "bg-orange-500",
   ]
 
-  // Run the selected algorithm
-  const runSimulation = () => {
-    let result
+  // Initialize default processes
+  useEffect(() => {
+    const defaultProcesses = [
+      { id: "P1", arrivalTime: 0, burstTime: 4, color: colors[0] },
+      { id: "P2", arrivalTime: 1, burstTime: 3, color: colors[1] },
+      { id: "P3", arrivalTime: 2, burstTime: 5, color: colors[2] },
+    ];
+    setProcesses(defaultProcesses);
+  }, []);
 
-    if (algorithm === "fcfs") {
-      result = runFCFS()
-    } else if (algorithm === "sjf") {
-      result = runSJF()
-    } else if (algorithm === "rr") {
-      result = runRoundRobin()
+  const updateReadyQueue = (time: number, runningProcess: ScheduleItem | null = null) => {
+    // Get processes that have arrived but haven't completed
+    const arrivedProcesses = processes
+      .filter(p => {
+        // Check if process has arrived
+        if (p.arrivalTime > time) return false;
+        
+        // Skip currently running process
+        if (runningProcess?.id === p.id) return false;
+        
+        // Check if process has completed by finding its last execution in the schedule
+        const lastExecution = [...schedule]
+          .reverse()
+          .find(s => s.id === p.id);
+          
+        // If we found a last execution and it's completed (end time <= current time)
+        // then don't include this process in ready queue
+        if (lastExecution && lastExecution.end <= time) return false;
+        
+        // Process hasn't completed yet and should be in ready queue
+        return true;
+      })
+      .sort((a, b) => {
+        if (algorithm === "sjf") {
+          // For SJF, sort by burst time
+          return a.burstTime - b.burstTime;
+        }
+        // For FCFS and RR, sort by arrival time
+        return a.arrivalTime - b.arrivalTime;
+      });
+    
+    setReadyQueue(arrivedProcesses);
+  };
+
+  // Auto-play effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout | undefined;
+
+    if (isPlaying && schedule.length > 0) {
+      interval = setInterval(() => {
+        if (currentTime < getMaxTime()) {
+          setCurrentTime((prev) => {
+            const newTime = prev + 1;
+            const running = schedule.find(s => s.start <= newTime && s.end > newTime) || null;
+            updateReadyQueue(newTime, running);
+            return newTime;
+          });
+        } else {
+          setIsPlaying(false);
+        }
+      }, 1000);
     }
 
-    setSchedule(result.gantt)
-    setStats({
-      avgWaitingTime: result.avgWaitingTime.toFixed(2),
-      avgTurnaroundTime: result.avgTurnaroundTime.toFixed(2),
-      waitingTime: result.waitingTime,
-      turnaroundTime: result.turnaroundTime,
-      completionTime: result.completionTime,
-    })
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPlaying, currentTime, schedule]);
 
-    setCurrentTime(0)
-  }
+  // Run the selected algorithm
+  const runSimulation = () => {
+    let result: SimulationResult | undefined;
+
+    if (algorithm === "fcfs") {
+      result = runFCFS();
+    } else if (algorithm === "sjf") {
+      result = runSJF();
+    } else if (algorithm === "rr") {
+      result = runRoundRobin();
+    }
+
+    if (result) {
+      setSchedule(result.schedule);
+      setCurrentTime(0);
+      updateReadyQueue(0);
+    }
+  };
 
   // FCFS algorithm
-  const runFCFS = () => {
-    // Sort processes by arrival time
-    const sortedProcesses = [...processes].sort((a, b) => a.arrivalTime - b.arrivalTime)
-
-    const n = sortedProcesses.length
-    const completionTime = new Array(n).fill(0)
-    const turnaroundTime = new Array(n).fill(0)
-    const waitingTime = new Array(n).fill(0)
-    const gantt = []
-
-    let currentTime = 0
+  const runFCFS = (): SimulationResult => {
+    const sortedProcesses = [...processes].sort((a, b) => a.arrivalTime - b.arrivalTime);
+    const n = sortedProcesses.length;
+    const completionTime = new Array(n).fill(0);
+    const turnaroundTime = new Array(n).fill(0);
+    const waitingTime = new Array(n).fill(0);
+    const gantt: ScheduleItem[] = [];
+    let currentTime = 0;
 
     for (let i = 0; i < n; i++) {
-      // If CPU is idle, move time to next arrival
       if (currentTime < sortedProcesses[i].arrivalTime) {
         gantt.push({
           id: "Idle",
           start: currentTime,
           end: sortedProcesses[i].arrivalTime,
           color: "bg-gray-300",
-        })
-        currentTime = sortedProcesses[i].arrivalTime
+        });
+        currentTime = sortedProcesses[i].arrivalTime;
       }
 
-      // Execute process
       gantt.push({
         id: sortedProcesses[i].id,
         start: currentTime,
         end: currentTime + sortedProcesses[i].burstTime,
         color: sortedProcesses[i].color,
-      })
+      });
 
-      // Update times
-      completionTime[i] = currentTime + sortedProcesses[i].burstTime
-      turnaroundTime[i] = completionTime[i] - sortedProcesses[i].arrivalTime
-      waitingTime[i] = turnaroundTime[i] - sortedProcesses[i].burstTime
-
-      currentTime = completionTime[i]
+      completionTime[i] = currentTime + sortedProcesses[i].burstTime;
+      turnaroundTime[i] = completionTime[i] - sortedProcesses[i].arrivalTime;
+      waitingTime[i] = turnaroundTime[i] - sortedProcesses[i].burstTime;
+      currentTime = completionTime[i];
     }
-
-    // Calculate averages
-    const avgTurnaroundTime = turnaroundTime.reduce((a, b) => a + b, 0) / n
-    const avgWaitingTime = waitingTime.reduce((a, b) => a + b, 0) / n
 
     return {
-      completionTime,
-      turnaroundTime,
-      waitingTime,
-      avgTurnaroundTime,
-      avgWaitingTime,
-      gantt,
-    }
-  }
+      schedule: gantt,
+    };
+  };
 
   // SJF algorithm
-  const runSJF = () => {
-    // Create a copy of processes
-    const processesCopy = processes.map((p) => ({
+  const runSJF = (): SimulationResult => {
+    const processesCopy = processes.map<Process & { remaining: number }>((p) => ({
       ...p,
       remaining: p.burstTime,
-    }))
+    }));
 
-    const n = processesCopy.length
-    const completionTime = new Array(n).fill(0)
-    const turnaroundTime = new Array(n).fill(0)
-    const waitingTime = new Array(n).fill(0)
-    const gantt = []
-
-    let currentTime = 0
-    let completed = 0
+    const n = processesCopy.length;
+    const completionTime = new Array(n).fill(0);
+    const turnaroundTime = new Array(n).fill(0);
+    const waitingTime = new Array(n).fill(0);
+    const gantt: ScheduleItem[] = [];
+    let currentTime = 0;
+    let completed = 0;
 
     while (completed !== n) {
-      // Find process with minimum burst time among arrived processes
-      let shortestJob = -1
-      let minBurst = Number.POSITIVE_INFINITY
+      let shortestJob = -1;
+      let minBurst = Number.POSITIVE_INFINITY;
 
       for (let i = 0; i < n; i++) {
         if (
@@ -142,172 +223,141 @@ export function CPUSchedulingVisualizer({ algorithm = "fcfs" }) {
           processesCopy[i].remaining > 0 &&
           processesCopy[i].remaining < minBurst
         ) {
-          minBurst = processesCopy[i].remaining
-          shortestJob = i
+          minBurst = processesCopy[i].remaining;
+          shortestJob = i;
         }
       }
 
       if (shortestJob === -1) {
-        // No process available, move to next arrival
         const nextArrival = processesCopy
           .filter((p) => p.remaining > 0)
-          .reduce((min, p) => Math.min(min, p.arrivalTime), Number.POSITIVE_INFINITY)
+          .reduce((min, p) => Math.min(min, p.arrivalTime), Number.POSITIVE_INFINITY);
 
         gantt.push({
           id: "Idle",
           start: currentTime,
           end: nextArrival,
           color: "bg-gray-300",
-        })
+        });
 
-        currentTime = nextArrival
-        continue
+        currentTime = nextArrival;
+        continue;
       }
 
-      // Execute the shortest job
       gantt.push({
         id: processesCopy[shortestJob].id,
         start: currentTime,
         end: currentTime + processesCopy[shortestJob].remaining,
         color: processesCopy[shortestJob].color,
-      })
+      });
 
-      // Update times
-      currentTime += processesCopy[shortestJob].remaining
+      const originalIndex = processes.findIndex(
+        (p) => p.id === processesCopy[shortestJob].id
+      );
 
-      // Find index in original processes array
-      const originalIndex = processes.findIndex((p) => p.id === processesCopy[shortestJob].id)
+      completionTime[originalIndex] = currentTime + processesCopy[shortestJob].remaining;
+      turnaroundTime[originalIndex] =
+        completionTime[originalIndex] - processesCopy[shortestJob].arrivalTime;
+      waitingTime[originalIndex] =
+        turnaroundTime[originalIndex] - processesCopy[shortestJob].burstTime;
 
-      completionTime[originalIndex] = currentTime
-      turnaroundTime[originalIndex] = completionTime[originalIndex] - processesCopy[shortestJob].arrivalTime
-      waitingTime[originalIndex] = turnaroundTime[originalIndex] - processesCopy[shortestJob].burstTime
-
-      processesCopy[shortestJob].remaining = 0
-      completed++
+      currentTime += processesCopy[shortestJob].remaining;
+      processesCopy[shortestJob].remaining = 0;
+      completed++;
     }
-
-    // Calculate averages
-    const avgTurnaroundTime = turnaroundTime.reduce((a, b) => a + b, 0) / n
-    const avgWaitingTime = waitingTime.reduce((a, b) => a + b, 0) / n
 
     return {
-      completionTime,
-      turnaroundTime,
-      waitingTime,
-      avgTurnaroundTime,
-      avgWaitingTime,
-      gantt,
-    }
-  }
+      schedule: gantt,
+    };
+  };
 
   // Round Robin algorithm
-  const runRoundRobin = () => {
-    // Create a copy of processes
-    const processesCopy = processes.map((p) => ({
+  const runRoundRobin = (): SimulationResult => {
+    const processesCopy = processes.map<Process & { remaining: number }>((p) => ({
       ...p,
       remaining: p.burstTime,
-    }))
+    }));
 
-    const n = processesCopy.length
-    const completionTime = new Array(n).fill(0)
-    const turnaroundTime = new Array(n).fill(0)
-    const waitingTime = new Array(n).fill(0)
-    const gantt = []
+    const n = processesCopy.length;
+    const completionTime = new Array(n).fill(0);
+    const turnaroundTime = new Array(n).fill(0);
+    const waitingTime = new Array(n).fill(0);
+    const gantt: ScheduleItem[] = [];
+    let currentTime = 0;
+    let completed = 0;
 
     // Sort by arrival time
-    processesCopy.sort((a, b) => a.arrivalTime - b.arrivalTime)
-
-    let currentTime = 0
-    let completed = 0
-    const readyQueue = []
+    processesCopy.sort((a, b) => a.arrivalTime - b.arrivalTime);
+    const readyQueueRR: (Process & { remaining: number })[] = [];
+    let i = 0;
 
     // Add first process to ready queue
     if (processesCopy.length > 0 && processesCopy[0].arrivalTime <= currentTime) {
-      readyQueue.push(processesCopy[0])
+      readyQueueRR.push(processesCopy[0]);
+      i++;
     }
 
-    let i = 1
-
     while (completed !== n) {
-      if (readyQueue.length === 0) {
-        // No process in ready queue, move to next arrival
+      if (readyQueueRR.length === 0) {
         const nextArrival = processesCopy
           .filter((p) => p.remaining > 0 && p.arrivalTime > currentTime)
-          .reduce((min, p) => Math.min(min, p.arrivalTime), Number.POSITIVE_INFINITY)
+          .reduce((min, p) => Math.min(min, p.arrivalTime), Number.POSITIVE_INFINITY);
 
         gantt.push({
           id: "Idle",
           start: currentTime,
           end: nextArrival,
           color: "bg-gray-300",
-        })
+        });
 
-        currentTime = nextArrival
+        currentTime = nextArrival;
 
-        // Add newly arrived processes to ready queue
         while (i < n && processesCopy[i].arrivalTime <= currentTime) {
-          readyQueue.push(processesCopy[i])
-          i++
+          readyQueueRR.push(processesCopy[i]);
+          i++;
         }
 
-        continue
+        continue;
       }
 
-      // Get process from ready queue
-      const current = readyQueue.shift()
-      const executeTime = Math.min(quantum, current.remaining)
+      const current = readyQueueRR.shift()!;
+      const executeTime = Math.min(quantum, current.remaining);
 
-      // Execute process
       gantt.push({
         id: current.id,
         start: currentTime,
         end: currentTime + executeTime,
         color: current.color,
-      })
+      });
 
-      currentTime += executeTime
-      current.remaining -= executeTime
+      currentTime += executeTime;
+      current.remaining -= executeTime;
 
-      // Add newly arrived processes to ready queue
       while (i < n && processesCopy[i].arrivalTime <= currentTime) {
-        readyQueue.push(processesCopy[i])
-        i++
+        readyQueueRR.push(processesCopy[i]);
+        i++;
       }
 
-      // If process is not completed, add back to ready queue
       if (current.remaining > 0) {
-        readyQueue.push(current)
+        readyQueueRR.push(current);
       } else {
-        // Process completed
-        completed++
-
-        // Find index in original processes array
-        const originalIndex = processes.findIndex((p) => p.id === current.id)
-
-        completionTime[originalIndex] = currentTime
-        turnaroundTime[originalIndex] = completionTime[originalIndex] - current.arrivalTime
-        waitingTime[originalIndex] = turnaroundTime[originalIndex] - current.burstTime
+        completed++;
+        const originalIndex = processes.findIndex((p) => p.id === current.id);
+        completionTime[originalIndex] = currentTime;
+        turnaroundTime[originalIndex] = completionTime[originalIndex] - current.arrivalTime;
+        waitingTime[originalIndex] = turnaroundTime[originalIndex] - current.burstTime;
       }
     }
-
-    // Calculate averages
-    const avgTurnaroundTime = turnaroundTime.reduce((a, b) => a + b, 0) / n
-    const avgWaitingTime = waitingTime.reduce((a, b) => a + b, 0) / n
 
     return {
-      completionTime,
-      turnaroundTime,
-      waitingTime,
-      avgTurnaroundTime,
-      avgWaitingTime,
-      gantt,
-    }
-  }
+      schedule: gantt,
+    };
+  };
 
-  // Add a new process
+  // Process management functions
   const addProcess = () => {
-    const newId = `P${processes.length + 1}`
-    const colorIndex = processes.length % colors.length
+    const newId = `P${processes.length + 1}`;
+    const colorIndex = processes.length % colors.length;
 
     setProcesses([
       ...processes,
@@ -317,76 +367,98 @@ export function CPUSchedulingVisualizer({ algorithm = "fcfs" }) {
         burstTime: 3,
         color: colors[colorIndex],
       },
-    ])
-  }
+    ]);
+  };
 
-  // Remove a process
-  const removeProcess = (index) => {
+  const removeProcess = (index: number) => {
     if (processes.length > 1) {
-      setProcesses(processes.filter((_, i) => i !== index))
+      setProcesses(processes.filter((_, i) => i !== index));
     }
-  }
+  };
 
-  // Update process values
-  const updateProcess = (index, field, value) => {
-    const updatedProcesses = [...processes]
-    updatedProcesses[index][field] = Number.parseInt(value) || 0
-    setProcesses(updatedProcesses)
-  }
+  const updateProcess = (index: number, field: keyof Pick<Process, 'arrivalTime' | 'burstTime'>, value: string) => {
+    const updatedProcesses = [...processes];
+    const parsedValue = Number.parseInt(value) || 0;
+    updatedProcesses[index] = {
+      ...updatedProcesses[index],
+      [field]: parsedValue
+    };
+    setProcesses(updatedProcesses);
+  };
+
+  // Utility functions
+  const getMaxTime = (): number => {
+    return schedule.length > 0 ? Math.max(...schedule.map((s) => s.end)) : 0;
+  };
+
+  const getCurrentProcess = (): string => {
+    return schedule.find((p) => p.start <= currentTime && p.end > currentTime)?.id || "None";
+  };
+
+  const togglePlayPause = () => {
+    setIsPlaying(!isPlaying);
+  };
 
   // Navigation functions
   const goToNextStep = () => {
     if (currentTime < getMaxTime()) {
-      setCurrentTime(currentTime + 1)
+      setCurrentTime(prev => {
+        const newTime = prev + 1;
+        const running = schedule.find(s => s.start <= newTime && s.end > newTime) || null;
+        updateReadyQueue(newTime, running);
+        return newTime;
+      });
     } else {
-      setIsPlaying(false)
+      setIsPlaying(false);
     }
-  }
+  };
 
   const goToPrevStep = () => {
     if (currentTime > 0) {
-      setCurrentTime(currentTime - 1)
+      setCurrentTime(prev => {
+        const newTime = prev - 1;
+        const running = schedule.find(s => s.start <= newTime && s.end > newTime) || null;
+        updateReadyQueue(newTime, running);
+        return newTime;
+      });
     }
-  }
+  };
 
   const resetSimulation = () => {
-    setCurrentTime(0)
-    setIsPlaying(false)
-  }
+    setCurrentTime(0);
+    setIsPlaying(false);
+    updateReadyQueue(0);
+  };
 
-  const togglePlayPause = () => {
-    setIsPlaying(!isPlaying)
-  }
+  const calculateProcessMetrics = (processId: string): ProcessMetrics | null => {
+    const process = processes.find(p => p.id === processId)
+    if (!process) return null
 
-  // Get max time from schedule
-  const getMaxTime = () => {
-    return schedule.length > 0 ? Math.max(...schedule.map((s) => s.end)) : 0
-  }
+    const executions = schedule.filter(s => s.id === processId)
+    if (!executions.length) return null
 
-  // Get current running process
-  const getCurrentProcess = () => {
-    return schedule.find((p) => p.start <= currentTime && p.end > currentTime)?.id || "None"
-  }
+    const completionTime = Math.max(...executions.map(e => e.end))
+    const turnaroundTime = completionTime - process.arrivalTime
+    const burstTime = process.burstTime
+    const waitingTime = turnaroundTime - burstTime
 
-  // Auto-play effect
-  useEffect(() => {
-    let interval
-
-    if (isPlaying && schedule.length > 0) {
-      interval = setInterval(() => {
-        if (currentTime < getMaxTime()) {
-          setCurrentTime((prev) => prev + 1)
-        } else {
-          setIsPlaying(false)
-        }
-      }, speed)
+    return {
+      pid: processId,
+      arrivalTime: process.arrivalTime,
+      burstTime,
+      completionTime,
+      turnaroundTime,
+      waitingTime
     }
+  }
 
-    return () => clearInterval(interval)
-  }, [isPlaying, currentTime, schedule, speed])
+  const processMetrics: ProcessMetrics[] = processes
+    .map(p => calculateProcessMetrics(p.id))
+    .filter((metrics): metrics is ProcessMetrics => metrics !== null)
 
   return (
     <div className="space-y-6">
+      {/* Process Management Section */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium">Processes</h3>
@@ -446,34 +518,36 @@ export function CPUSchedulingVisualizer({ algorithm = "fcfs" }) {
             </TableBody>
           </Table>
         </div>
-
-        {algorithm === "rr" && (
-          <div>
-            <Label htmlFor="quantum">Time Quantum</Label>
-            <Input
-              id="quantum"
-              type="number"
-              min="1"
-              value={quantum}
-              onChange={(e) => setQuantum(Number.parseInt(e.target.value) || 1)}
-              className="w-20"
-            />
-          </div>
-        )}
-
-        <Button onClick={runSimulation} className="w-full">
-          Run Simulation
-        </Button>
       </div>
+
+      {/* Time Quantum Input for RR */}
+      {algorithm === "rr" && (
+        <div className="flex items-center gap-2">
+          <Label htmlFor="quantum">Time Quantum</Label>
+          <Input
+            id="quantum"
+            type="number"
+            min="1"
+            value={quantum}
+            onChange={(e) => setQuantum(Number.parseInt(e.target.value) || 1)}
+            className="w-24"
+          />
+        </div>
+      )}
+
+      <Button onClick={runSimulation} className="w-full">
+        Run Simulation
+      </Button>
 
       {schedule.length > 0 && (
         <div className="space-y-6">
-          <div>
-            <p className="text-sm font-medium mb-2">Gantt Chart:</p>
-            <div className="relative h-12 border rounded-md overflow-hidden">
+          {/* Gantt Chart */}
+          <Card className="p-4">
+            <p className="text-sm font-medium mb-3">Gantt Chart</p>
+            <div className="relative h-12 border rounded-md overflow-hidden bg-muted/30">
               {schedule.map((proc) => {
-                const width = ((proc.end - proc.start) / getMaxTime()) * 100
-                const left = (proc.start / getMaxTime()) * 100
+                const width = ((proc.end - proc.start) / getMaxTime()) * 100;
+                const left = (proc.start / getMaxTime()) * 100;
 
                 return (
                   <div
@@ -487,7 +561,7 @@ export function CPUSchedulingVisualizer({ algorithm = "fcfs" }) {
                   >
                     {proc.id}
                   </div>
-                )
+                );
               })}
 
               {/* Current time marker */}
@@ -497,52 +571,142 @@ export function CPUSchedulingVisualizer({ algorithm = "fcfs" }) {
               ></div>
             </div>
 
-            <div className="flex justify-between text-xs mt-1">
+            <div className="flex justify-between text-xs mt-1 text-muted-foreground">
               <span>0</span>
               <span>{getMaxTime()}</span>
             </div>
-          </div>
+          </Card>
 
+          {/* Ready Queue */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium">Ready Queue</p>
+              <span className="text-xs text-muted-foreground">
+                Time: {currentTime}
+              </span>
+            </div>
+            <div className="min-h-[3rem] p-2 border rounded-md bg-muted/30 flex items-center">
+              <div className="flex gap-2 flex-wrap">
+                {readyQueue.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Queue is empty</p>
+                ) : (
+                  readyQueue.map((process, index) => (
+                    <div
+                      key={`${process.id}-${index}`}
+                      className={`px-3 py-1.5 rounded text-sm text-white flex items-center gap-2 ${process.color}`}
+                    >
+                      <span>{process.id}</span>
+                      {algorithm === "sjf" && (
+                        <span className="text-xs bg-black/20 px-1.5 py-0.5 rounded">
+                          BT: {process.burstTime}
+                        </span>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Status and Controls */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="p-4">
-              <p className="text-sm font-medium mb-2">Current Status:</p>
-              <p>
-                <span className="font-medium">Time:</span> {currentTime}
-              </p>
-              <p>
-                <span className="font-medium">Running Process:</span> {getCurrentProcess()}
-              </p>
+              <p className="text-sm font-medium mb-2">Current Status</p>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Time:</span>
+                  <span className="font-medium">{currentTime}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Running Process:</span>
+                  <span className="font-medium">{getCurrentProcess()}</span>
+                </div>
+              </div>
             </Card>
 
             <Card className="p-4">
-              <p className="text-sm font-medium mb-2">Statistics:</p>
-              <p>
-                <span className="font-medium">Avg. Waiting Time:</span> {stats.avgWaitingTime}
-              </p>
-              <p>
-                <span className="font-medium">Avg. Turnaround Time:</span> {stats.avgTurnaroundTime}
-              </p>
+              <p className="text-sm font-medium mb-2">Statistics</p>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Avg. Waiting Time:</span>
+                  <span className="font-medium">0</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Avg. Turnaround Time:</span>
+                  <span className="font-medium">0</span>
+                </div>
+              </div>
             </Card>
           </div>
 
-          <div className="flex justify-between items-center">
-            <Button variant="outline" size="icon" onClick={goToPrevStep} disabled={currentTime === 0}>
+          {/* Playback Controls */}
+          <div className="relative flex justify-center items-center min-h-[40px]">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={goToPrevStep} 
+              disabled={currentTime === 0}
+              className="absolute left-0"
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" onClick={resetSimulation}>
                 <RotateCcw className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="icon" onClick={togglePlayPause}>
                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
+              <Button variant="outline" onClick={() => setShowTableDialog(true)}>
+                Show Table
+              </Button>
             </div>
-            <Button variant="outline" size="icon" onClick={goToNextStep} disabled={currentTime >= getMaxTime()}>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={goToNextStep} 
+              disabled={currentTime >= getMaxTime()}
+              className="absolute right-0"
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
+
+      <Dialog open={showTableDialog} onOpenChange={setShowTableDialog}>
+        <DialogContent className="sm:max-w-[800px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="text-xl mb-4">Process Metrics</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-semibold">PID</TableHead>
+                  <TableHead className="font-semibold text-right">Arrival Time</TableHead>
+                  <TableHead className="font-semibold text-right">Burst Time</TableHead>
+                  <TableHead className="font-semibold text-right">Completion Time</TableHead>
+                  <TableHead className="font-semibold text-right">Turnaround Time</TableHead>
+                  <TableHead className="font-semibold text-right">Waiting Time</TableHead>
+                </TableRow>
+              </TableHeader>
+            <TableBody>
+              {processMetrics.map((metrics) => (
+                <TableRow key={metrics.pid}>
+                  <TableCell className="font-medium">{metrics.pid}</TableCell>
+                  <TableCell className="text-right">{metrics.arrivalTime}</TableCell>
+                  <TableCell className="text-right">{metrics.burstTime}</TableCell>
+                  <TableCell className="text-right">{metrics.completionTime}</TableCell>
+                  <TableCell className="text-right">{metrics.turnaroundTime}</TableCell>
+                  <TableCell className="text-right">{metrics.waitingTime}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }

@@ -1,6 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { CPUSchedulingVisualizer } from "@/components/cpu-scheduling-visualizer"
+import CPUSchedulingVisualizer from "@/components/cpu-scheduling-visualizer"
 import { CodeBlock } from "@/components/code-block"
 import { Breadcrumbs } from "@/components/breadcrumbs"
 import { TooltipHelper } from "@/components/tooltip-helper"
