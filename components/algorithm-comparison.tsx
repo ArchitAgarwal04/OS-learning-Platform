@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,15 +20,44 @@ interface Process {
 }
 
 interface DiskRequest {
-  from: number
-  to: number
-  seekTime: number
+  from: number;
+  to: number;
 }
 
 interface DiskResult {
-  seekSequence: DiskRequest[]
-  totalSeekTime: number
+  seekSequence: DiskRequest[];
+  totalSeekTime: number;
+  avgSeekTime: number;
+  maxSeekTime: number;
+  minSeekTime: number;
+  totalHeadMovement: number;
 }
+
+interface DiskMetrics {
+  averageSeekTime: number;
+  totalSeekTime: number;
+  maxSeekTime: number;
+  minSeekTime: number;
+  totalHeadMovement: number;
+}
+
+const generateDiskPath = (seekSequence: DiskRequest[]) => {
+  if (!seekSequence.length) return '';
+  
+  // Scale the values to fit in our SVG viewBox
+  const scaleY = (value: number) => 100 - (value / 199) * 100;
+  
+  // Generate path starting from the first point
+  let path = `M 0 ${scaleY(seekSequence[0].from)}`;
+  
+  // Add line segments for each subsequent point
+  seekSequence.forEach((req, index) => {
+    const x = (index / (seekSequence.length - 1)) * 100;
+    path += ` L ${x} ${scaleY(req.to)}`;
+  });
+  
+  return path;
+};
 
 export function AlgorithmComparison() {
   const [referenceString, setReferenceString] = useState("7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1")
@@ -46,11 +75,39 @@ export function AlgorithmComparison() {
 
   // Disk Scheduling state
   const [requestSequence, setRequestSequence] = useState("98 183 37 122 14 124 65 67")
-  const [initialPosition, setInitialPosition] = useState(50)
-  const [fcfsResult, setFcfsResult] = useState<DiskResult>({ seekSequence: [], totalSeekTime: 0 })
-  const [sstfResult, setSstfResult] = useState<DiskResult>({ seekSequence: [], totalSeekTime: 0 })
-  const [scanResult, setScanResult] = useState<DiskResult>({ seekSequence: [], totalSeekTime: 0 })
-  const [cscanResult, setCscanResult] = useState<DiskResult>({ seekSequence: [], totalSeekTime: 0 })
+  const [initialPosition, setInitialPosition] = useState(53)
+  const [fcfsResult, setFcfsResult] = useState<DiskResult>({
+    seekSequence: [],
+    totalSeekTime: 0,
+    avgSeekTime: 0,
+    maxSeekTime: 0,
+    minSeekTime: 0,
+    totalHeadMovement: 0
+  })
+  const [sstfResult, setSstfResult] = useState<DiskResult>({
+    seekSequence: [],
+    totalSeekTime: 0,
+    avgSeekTime: 0,
+    maxSeekTime: 0,
+    minSeekTime: 0,
+    totalHeadMovement: 0
+  })
+  const [scanResult, setScanResult] = useState<DiskResult>({
+    seekSequence: [],
+    totalSeekTime: 0,
+    avgSeekTime: 0,
+    maxSeekTime: 0,
+    minSeekTime: 0,
+    totalHeadMovement: 0
+  })
+  const [cscanResult, setCscanResult] = useState<DiskResult>({
+    seekSequence: [],
+    totalSeekTime: 0,
+    avgSeekTime: 0,
+    maxSeekTime: 0,
+    minSeekTime: 0,
+    totalHeadMovement: 0
+  })
 
   // Process management functions
   const addProcess = () => {
@@ -334,117 +391,183 @@ export function AlgorithmComparison() {
     })
   }
 
-  // Disk Scheduling comparison function
-  const runDiskComparison = () => {
-    const requests = requestSequence.split(" ").map(Number)
-    const initPos = Number(initialPosition)
-
-    const fcfs = simulateDiskFCFS(requests, initPos)
-    const sstf = simulateSSFT(requests, initPos)
-    const scan = simulateSCAN(requests, initPos)
-    const cscan = simulateCSCAN(requests, initPos)
-
-    setFcfsResult(fcfs)
-    setSstfResult(sstf)
-    setScanResult(scan)
-    setCscanResult(cscan)
-  }
-
-  // Disk scheduling algorithm implementations
+  // Disk scheduling algorithms
   const simulateDiskFCFS = (requests: number[], initialPosition: number): DiskResult => {
-    const seekSequence: DiskRequest[] = []
-    let totalSeekTime = 0
-    let currentPosition = initialPosition
+    const seekSequence: DiskRequest[] = [];
+    let currentPosition = initialPosition;
+    let totalSeekTime = 0;
+    const seekTimes: number[] = [];
 
-    for (const request of requests) {
+    requests.forEach((request) => {
+      const seekTime = Math.abs(request - currentPosition);
+      seekTimes.push(seekTime);
+      totalSeekTime += seekTime;
+
       seekSequence.push({
         from: currentPosition,
-        to: request,
-        seekTime: Math.abs(request - currentPosition)
-      })
-      totalSeekTime += Math.abs(request - currentPosition)
-      currentPosition = request
-    }
+        to: request
+      });
 
-    return { seekSequence, totalSeekTime }
-  }
+      currentPosition = request;
+    });
+
+    return {
+      seekSequence,
+      totalSeekTime,
+      avgSeekTime: totalSeekTime / requests.length,
+      maxSeekTime: seekTimes.length > 0 ? Math.max(...seekTimes) : 0,
+      minSeekTime: seekTimes.length > 0 ? Math.min(...seekTimes) : 0,
+      totalHeadMovement: totalSeekTime
+    };
+  };
 
   const simulateSSFT = (requests: number[], initialPosition: number): DiskResult => {
-    const seekSequence: DiskRequest[] = []
-    let totalSeekTime = 0
-    let currentPosition = initialPosition
-    const remaining = [...requests]
+    const seekSequence: DiskRequest[] = [];
+    let currentPosition = initialPosition;
+    let totalSeekTime = 0;
+    const seekTimes: number[] = [];
+    const remaining = [...requests];
 
     while (remaining.length > 0) {
-      let minSeekTime = Infinity
-      let nextIndex = -1
+      // Find request with shortest seek time from current position
+      const nextRequestIndex = remaining.reduce((minIdx, request, idx) => {
+        const seekTime = Math.abs(request - currentPosition);
+        const minSeekTime = Math.abs(remaining[minIdx] - currentPosition);
+        return seekTime < minSeekTime ? idx : minIdx;
+      }, 0);
 
-      remaining.forEach((request, index) => {
-        const seekTime = Math.abs(request - currentPosition)
-        if (seekTime < minSeekTime) {
-          minSeekTime = seekTime
-          nextIndex = index
-        }
-      })
+      const seekTime = Math.abs(remaining[nextRequestIndex] - currentPosition);
+      seekTimes.push(seekTime);
+      totalSeekTime += seekTime;
 
       seekSequence.push({
         from: currentPosition,
-        to: remaining[nextIndex],
-        seekTime: minSeekTime
-      })
-      totalSeekTime += minSeekTime
-      currentPosition = remaining[nextIndex]
-      remaining.splice(nextIndex, 1)
+        to: remaining[nextRequestIndex]
+      });
+
+      currentPosition = remaining[nextRequestIndex];
+      remaining.splice(nextRequestIndex, 1);
     }
 
-    return { seekSequence, totalSeekTime }
-  }
+    return {
+      seekSequence,
+      totalSeekTime,
+      avgSeekTime: totalSeekTime / seekSequence.length,
+      maxSeekTime: seekTimes.length > 0 ? Math.max(...seekTimes) : 0,
+      minSeekTime: seekTimes.length > 0 ? Math.min(...seekTimes) : 0,
+      totalHeadMovement: totalSeekTime
+    };
+  };
 
   const simulateSCAN = (requests: number[], initialPosition: number): DiskResult => {
-    const seekSequence: DiskRequest[] = []
-    let totalSeekTime = 0
-    let currentPosition = initialPosition
-    const sortedRequests = [...new Set(requests)].sort((a, b) => a - b)
+    const seekSequence: DiskRequest[] = [];
+    let currentPosition = initialPosition;
+    let totalSeekTime = 0;
+    const seekTimes: number[] = [];
+    const maxTrack = 199;
     
-    const startIndex = sortedRequests.findIndex(r => r >= currentPosition)
-    const firstPart = sortedRequests.slice(startIndex)
-    const secondPart = sortedRequests.slice(0, startIndex).reverse()
-
-    for (const request of [...firstPart, ...secondPart]) {
-      seekSequence.push({
-        from: currentPosition,
-        to: request,
-        seekTime: Math.abs(request - currentPosition)
-      })
-      totalSeekTime += Math.abs(request - currentPosition)
-      currentPosition = request
+    // Include current position in sorted set
+    const allPositions = [...new Set([...requests, initialPosition])].sort((a, b) => a - b);
+    const currentIndex = allPositions.indexOf(initialPosition);
+    
+    const moveHead = (to: number) => {
+      const seekTime = Math.abs(to - currentPosition);
+      seekSequence.push({ from: currentPosition, to });
+      seekTimes.push(seekTime);
+      totalSeekTime += seekTime;
+      currentPosition = to;
+    };
+    
+    // Move right first
+    for (let i = currentIndex + 1; i < allPositions.length; i++) {
+      moveHead(allPositions[i]);
+    }
+    
+    if (currentPosition < maxTrack) {
+      moveHead(maxTrack);
+    }
+    
+    // Move left to serve remaining requests
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      moveHead(allPositions[i]);
     }
 
-    return { seekSequence, totalSeekTime }
-  }
+    return {
+      seekSequence,
+      totalSeekTime,
+      avgSeekTime: totalSeekTime / seekSequence.length,
+      maxSeekTime: seekTimes.length > 0 ? Math.max(...seekTimes) : 0,
+      minSeekTime: seekTimes.length > 0 ? Math.min(...seekTimes) : 0,
+      totalHeadMovement: totalSeekTime
+    };
+  };
 
   const simulateCSCAN = (requests: number[], initialPosition: number): DiskResult => {
-    const seekSequence: DiskRequest[] = []
-    let totalSeekTime = 0
-    let currentPosition = initialPosition
-    const sortedRequests = [...new Set(requests)].sort((a, b) => a - b)
+    const seekSequence: DiskRequest[] = [];
+    let currentPosition = initialPosition;
+    let totalSeekTime = 0;
+    const seekTimes: number[] = [];
+    const maxTrack = 199;
     
-    const startIndex = sortedRequests.findIndex(r => r >= currentPosition)
-    const firstPart = sortedRequests.slice(startIndex)
-    const secondPart = sortedRequests.slice(0, startIndex)
+    const allPositions = [...new Set([...requests, initialPosition])].sort((a, b) => a - b);
+    const currentIndex = allPositions.indexOf(initialPosition);
+    
+    const moveHead = (to: number) => {
+      const seekTime = Math.abs(to - currentPosition);
+      seekSequence.push({ from: currentPosition, to });
+      seekTimes.push(seekTime);
+      totalSeekTime += seekTime;
+      currentPosition = to;
+    };
+    
+    // Move right
+    for (let i = currentIndex + 1; i < allPositions.length; i++) {
+      moveHead(allPositions[i]);
+    }
+    
+    if (currentPosition < maxTrack) {
+      moveHead(maxTrack);
+    }
+    
+    // Jump to beginning
+    const jumpToZero = { from: currentPosition, to: 0 };
+    const jumpTime = currentPosition;
+    seekSequence.push(jumpToZero);
+    seekTimes.push(jumpTime);
+    totalSeekTime += jumpTime;
+    currentPosition = 0;
+    
+    // Serve remaining requests
+    for (let i = 0; i < currentIndex; i++) {
+      moveHead(allPositions[i]);
+    }
+    
+    return {
+      seekSequence,
+      totalSeekTime,
+      avgSeekTime: totalSeekTime / seekSequence.length,
+      maxSeekTime: seekTimes.length > 0 ? Math.max(...seekTimes) : 0,
+      minSeekTime: seekTimes.length > 0 ? Math.min(...seekTimes) : 0,
+      totalHeadMovement: totalSeekTime
+    };
+  };
 
-    for (const request of [...firstPart, ...secondPart]) {
-      seekSequence.push({
-        from: currentPosition,
-        to: request,
-        seekTime: Math.abs(request - currentPosition)
-      })
-      totalSeekTime += Math.abs(request - currentPosition)
-      currentPosition = request
+  // Run disk scheduling comparison
+  const runDiskComparison = useCallback(() => {
+    const requests = requestSequence
+      .split(/[\s,]+/)
+      .map(Number)
+      .filter(n => !isNaN(n) && n >= 0 && n <= 199);
+
+    if (requests.length === 0) {
+      return;
     }
 
-    return { seekSequence, totalSeekTime }
-  }
+    setFcfsResult(simulateDiskFCFS(requests, initialPosition));
+    setSstfResult(simulateSSFT(requests, initialPosition));
+    setScanResult(simulateSCAN(requests, initialPosition));
+    setCscanResult(simulateCSCAN(requests, initialPosition));
+  }, [requestSequence, initialPosition]);
 
   useEffect(() => {
     if (requestSequence && initialPosition) {
@@ -452,16 +575,16 @@ export function AlgorithmComparison() {
     }
   }, [requestSequence, initialPosition])
 
-  // Helper function to generate SVG path for head movement visualization
-  function generatePath(seekSequence: DiskRequest[]) {
-    if (!seekSequence || seekSequence.length === 0) return ""
+  // Helper function to calculate metrics
+  function calculateMetrics(seekSequence: DiskRequest[]) {
+    if (seekSequence.length === 0) return { avgSeekTime: 0, maxSeekTime: 0, minSeekTime: 0 }
     
-    return seekSequence.map((seq, i) => {
-      const x1 = (seq.from / 200) * 100
-      const x2 = (seq.to / 200) * 100
-      const y = 50 // Center of the visualization
-      return `${i === 0 ? "M" : "L"} ${x1} ${y} L ${x2} ${y}`
-    }).join(" ")
+    const seekTimes = seekSequence.map(req => Math.abs(req.to - req.from))
+    return {
+      avgSeekTime: seekTimes.reduce((a, b) => a + b, 0) / seekTimes.length,
+      maxSeekTime: Math.max(...seekTimes),
+      minSeekTime: Math.min(...seekTimes)
+    }
   }
 
   return (
@@ -904,11 +1027,11 @@ export function AlgorithmComparison() {
 
           <TabsContent value="disk-scheduling">
             <div className="space-y-6">
-              <div className="grid gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <div className="flex items-center gap-2">
                     <Label htmlFor="request-sequence">Request Sequence</Label>
-                    <TooltipHelper content="A sequence of disk track numbers that need to be accessed. Separate numbers with spaces." />
+                    <TooltipHelper content="A sequence of disk track numbers that need to be accessed. Separate numbers with spaces. Valid range: 0-199" />
                   </div>
                   <Input
                     id="request-sequence"
@@ -921,103 +1044,215 @@ export function AlgorithmComparison() {
                 <div>
                   <div className="flex items-center gap-2">
                     <Label htmlFor="initial-position">Initial Head Position</Label>
-                    <TooltipHelper content="The starting position of the disk head" />
+                    <TooltipHelper content="The starting position of the disk head (0-199)" />
                   </div>
                   <Input
                     id="initial-position"
                     type="number"
+                    min="0"
+                    max="199"
                     value={initialPosition}
-                    onChange={(e) => setInitialPosition(parseInt(e.target.value))}
+                    onChange={(e) => setInitialPosition(Number(e.target.value))}
+                    placeholder="50"
                     className="mt-1.5"
                   />
                 </div>
               </div>
 
-              <div className="grid gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Results</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-8">
-                      <div>
-                        <h4 className="text-sm font-medium mb-3">Total Seek Time Comparison</h4>
-                        <div className="relative pt-1">
-                          <div className="grid grid-cols-4 gap-4">
+              <Button onClick={runDiskComparison} className="w-full">
+                Run Comparison
+              </Button>
+
+              {fcfsResult.seekSequence.length > 0 && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="bg-muted/50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center justify-between">
+                          FCFS (First Come First Serve)
+                          <span className="text-xs px-2 py-1 rounded-full bg-blue-500/10 text-blue-500">Simple</span>
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Serves requests in the order they arrive
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="relative w-full h-[100px]">
+                            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <path
+                                d={generateDiskPath(fcfsResult.seekSequence)}
+                                stroke="hsl(var(--primary))"
+                                strokeWidth="2"
+                                fill="none"
+                              />
+                            </svg>
+                          </div>
+                          <div className="space-y-1 text-sm">
+                            <p><span className="font-medium">Total Movement:</span> {fcfsResult.totalHeadMovement} tracks</p>
+                            <p><span className="font-medium">Avg Seek Time:</span> {fcfsResult.avgSeekTime.toFixed(2)} tracks</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-muted/50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center justify-between">
+                          SSTF (Shortest Seek Time First)
+                          <span className="text-xs px-2 py-1 rounded-full bg-green-500/10 text-green-500">Efficient</span>
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Serves the closest request from current position
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="relative w-full h-[100px]">
+                            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <path
+                                d={generateDiskPath(sstfResult.seekSequence)}
+                                stroke="hsl(var(--primary))"
+                                strokeWidth="2"
+                                fill="none"
+                              />
+                            </svg>
+                          </div>
+                          <div className="space-y-1 text-sm">
+                            <p><span className="font-medium">Total Movement:</span> {sstfResult.totalHeadMovement} tracks</p>
+                            <p><span className="font-medium">Avg Seek Time:</span> {sstfResult.avgSeekTime.toFixed(2)} tracks</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-muted/50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center justify-between">
+                          SCAN (Elevator)
+                          <span className="text-xs px-2 py-1 rounded-full bg-purple-500/10 text-purple-500">Fair</span>
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Moves in one direction until end, then reverses
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="relative w-full h-[100px]">
+                            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <path
+                                d={generateDiskPath(scanResult.seekSequence)}
+                                stroke="hsl(var(--primary))"
+                                strokeWidth="2"
+                                fill="none"
+                              />
+                            </svg>
+                          </div>
+                          <div className="space-y-1 text-sm">
+                            <p><span className="font-medium">Total Movement:</span> {scanResult.totalHeadMovement} tracks</p>
+                            <p><span className="font-medium">Avg Seek Time:</span> {scanResult.avgSeekTime.toFixed(2)} tracks</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="bg-muted/50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center justify-between">
+                          C-SCAN (Circular SCAN)
+                          <span className="text-xs px-2 py-1 rounded-full bg-orange-500/10 text-orange-500">Uniform</span>
+                        </CardTitle>
+                        <CardDescription className="text-xs">
+                          Moves in one direction, jumps back to start
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="relative w-full h-[100px]">
+                            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <path
+                                d={generateDiskPath(cscanResult.seekSequence)}
+                                stroke="hsl(var(--primary))"
+                                strokeWidth="2"
+                                fill="none"
+                              />
+                            </svg>
+                          </div>
+                          <div className="space-y-1 text-sm">
+                            <p><span className="font-medium">Total Movement:</span> {cscanResult.totalHeadMovement} tracks</p>
+                            <p><span className="font-medium">Avg Seek Time:</span> {cscanResult.avgSeekTime.toFixed(2)} tracks</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Performance Comparison</CardTitle>
+                      <CardDescription>Compare metrics across algorithms</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-6">
+                        <div className="relative h-40">
+                          <div className="absolute inset-0 flex items-end justify-around gap-4">
                             {[
-                              { name: "FCFS", value: fcfsResult.totalSeekTime },
-                              { name: "SSTF", value: sstfResult.totalSeekTime },
-                              { name: "SCAN", value: scanResult.totalSeekTime },
-                              { name: "C-SCAN", value: cscanResult.totalSeekTime },
-                            ].map((algorithm) => (
-                              <div key={algorithm.name} className="text-center">
-                                <div className="text-2xl font-bold">{algorithm.value}</div>
-                                <div className="text-xs text-muted-foreground mt-1">{algorithm.name}</div>
+                              { name: 'FCFS', result: fcfsResult, color: 'bg-blue-500' },
+                              { name: 'SSTF', result: sstfResult, color: 'bg-green-500' },
+                              { name: 'SCAN', result: scanResult, color: 'bg-purple-500' },
+                              { name: 'C-SCAN', result: cscanResult, color: 'bg-orange-500' }
+                            ].map((algo) => (
+                              <div key={algo.name} className="flex flex-col items-center w-1/5">
+                                <div
+                                  className={`w-full ${algo.color} rounded-t-md transition-all duration-500`}
+                                  style={{
+                                    height: `${(algo.result.totalHeadMovement / 400) * 100}%`
+                                  }}
+                                ></div>
+                                <span className="mt-2 text-xs">{algo.name}</span>
                               </div>
                             ))}
                           </div>
+                          <div className="absolute left-0 right-0 top-0 flex justify-between text-xs text-muted-foreground">
+                            <span>Total Head Movement</span>
+                            <span>Lower is better</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <Card className="p-4">
+                            <h4 className="font-medium mb-2">Key Characteristics</h4>
+                            <ul className="space-y-2 text-sm">
+                              <li><span className="font-medium">FCFS:</span> Simple but may cause excessive head movement</li>
+                              <li><span className="font-medium">SSTF:</span> Minimizes total head movement but may cause starvation</li>
+                              <li><span className="font-medium">SCAN:</span> Prevents starvation, good for heavy loads</li>
+                              <li><span className="font-medium">C-SCAN:</span> More uniform waiting time than SCAN</li>
+                            </ul>
+                          </Card>
+                          <Card className="p-4">
+                            <h4 className="font-medium mb-2">Best Use Cases</h4>
+                            <ul className="space-y-2 text-sm">
+                              <li><span className="font-medium">FCFS:</span> Light load, sequential access patterns</li>
+                              <li><span className="font-medium">SSTF:</span> Random access patterns, low load</li>
+                              <li><span className="font-medium">SCAN:</span> Heavy load, varied request patterns</li>
+                              <li><span className="font-medium">C-SCAN:</span> Heavy load, uniform service requirements</li>
+                            </ul>
+                          </Card>
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
 
-                      <div>
-                        <h4 className="text-sm font-medium mb-3">Head Movement Visualization</h4>
-                        <div className="h-48 relative">
-                          {/* Track visualization */}
-                          <div className="absolute inset-x-0 top-1/2 h-1 bg-muted" />
-                          
-                          {/* Request points */}
-                          {requestSequence.split(" ").map((req, i) => {
-                            const position = (Number(req) / 200) * 100
-                            return (
-                              <div
-                                key={i}
-                                className="absolute top-1/2 w-2 h-2 rounded-full bg-muted-foreground"
-                                style={{ left: `${position}%`, transform: "translate(-50%, -50%)" }}
-                              />
-                            )
-                          })}
-
-                          {/* Algorithm paths */}
-                          {[fcfsResult, sstfResult, scanResult, cscanResult].map((result, i) => (
-                            <svg
-                              key={i}
-                              className="absolute inset-0"
-                              style={{
-                                opacity: 0.5,
-                                strokeWidth: 2,
-                                stroke: ["#3b82f6", "#10b981", "#6366f1", "#8b5cf6"][i],
-                                fill: "none",
-                              }}
-                            >
-                              <path d={generatePath(result.seekSequence)} />
-                            </svg>
-                          ))}
-                        </div>
-                        <div className="flex justify-center gap-4 mt-4">
-                          {["FCFS", "SSTF", "SCAN", "C-SCAN"].map((name, i) => (
-                            <div key={name} className="flex items-center gap-1">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: ["#3b82f6", "#10b981", "#6366f1", "#8b5cf6"][i] }}
-                              />
-                              <span className="text-xs">{name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="flex justify-center">
-                  <Button variant="outline" size="sm" asChild>
-                    <a href="/disk-scheduling" className="flex items-center">
-                      View Detailed Visualizations
-                      <ArrowRight className="ml-2 h-3 w-3" />
-                    </a>
-                  </Button>
+                  <div className="flex justify-center">
+                    <Button variant="outline" size="sm" asChild>
+                      <a href="/disk-scheduling" className="flex items-center">
+                        View Detailed Visualizations
+                        <ArrowRight className="ml-2 h-3 w-3" />
+                      </a>
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
