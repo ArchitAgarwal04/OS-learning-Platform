@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { TooltipHelper } from "@/components/tooltip-helper"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ChevronRight, ChevronLeft, Play, Pause, RotateCcw, Clock } from "lucide-react"
 
 interface SimulationResult {
@@ -24,6 +26,7 @@ export function PageReplacementVisualizer({ algorithm = "fifo" }: { algorithm: "
   const [speed, setSpeed] = useState(1000) // ms between steps
   const [results, setResults] = useState<SimulationResult[]>([])
   const [animating, setAnimating] = useState(false)
+  const [showTableDialog, setShowTableDialog] = useState(false)
 
   // Parse reference string into array of numbers
   const parseReferenceString = (str: string): number[] => {
@@ -339,24 +342,88 @@ export function PageReplacementVisualizer({ algorithm = "fifo" }: { algorithm: "
             />
           </div>
 
-          <div className="flex justify-between items-center">
-            <Button variant="outline" size="icon" onClick={goToPrevStep} disabled={currentStep === 0}>
+          <div className="relative flex justify-center items-center min-h-[40px]">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={goToPrevStep}
+              disabled={currentStep === 0}
+              className="absolute left-0"
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" onClick={resetSimulation}>
                 <RotateCcw className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="icon" onClick={togglePlayPause}>
                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
+              <Button variant="outline" onClick={() => setShowTableDialog(true)}>
+                Show Table
+              </Button>
             </div>
-            <Button variant="outline" size="icon" onClick={goToNextStep} disabled={currentStep === results.length - 1}>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={goToNextStep}
+              disabled={currentStep === results.length - 1}
+              className="absolute right-0"
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
+
+      <Dialog open={showTableDialog} onOpenChange={setShowTableDialog}>
+        <DialogContent className="sm:max-w-[900px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="text-xl mb-4">Page Reference Table</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-center border px-2 font-semibold">Reference →</TableHead>
+                  {results.map((result, index) => (
+                    <TableHead key={index} className="text-center border px-2 w-12 font-semibold">
+                      {result.page}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: frameCount }).map((_, frameIndex) => (
+                  <TableRow key={frameIndex}>
+                    <TableCell className="text-center border px-2 font-medium">
+                      Frame {frameIndex + 1}
+                    </TableCell>
+                    {results.map((result, stepIndex) => (
+                      <TableCell key={stepIndex} className="text-center border px-2">
+                        {result.frames[frameIndex] === -1 ? "" : result.frames[frameIndex]}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+                <TableRow>
+                  <TableCell className="text-center border px-2 font-medium">Status</TableCell>
+                  {results.map((result, index) => (
+                    <TableCell 
+                      key={index} 
+                      className={`text-center border px-2 font-medium ${
+                        result.fault ? "text-red-500" : "text-green-500"
+                      }`}
+                    >
+                      {result.fault ? "M" : "H"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
