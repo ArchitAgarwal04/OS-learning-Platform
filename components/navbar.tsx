@@ -147,7 +147,7 @@ export default function Navbar() {
           </div>
           <ModeToggle />
           <Button asChild className="hidden md:inline-flex">
-            <Link href="/page-replacement">Start Learning</Link>
+            <Link href="/dashboard">Start Learning</Link>
           </Button>
 
           {/* Mobile Menu Button */}

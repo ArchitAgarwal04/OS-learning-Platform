@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import ProgressBar from "@/components/ProgressBar";
 import ChapterCard from "@/components/ChapterCard";
 import ContentView from "@/components/ContentView";
-import ThemeToggle from "@/components/ThemeToggle";
 import NotesPanel from "@/components/NotesPanel";
 import { chaptersData, ChapterContent } from "@/data/chapters";
 import { 
@@ -19,7 +18,8 @@ import {
   getLastVisitedChapter, 
   isChapterCompleted,
   markChapterComplete,
-  setLastVisitedChapter
+  setLastVisitedChapter,
+  loadProgress
 } from "@/utils/progressService";
 
 // Extended icon map with more icons for subtopics
@@ -88,6 +88,11 @@ const Dashboard: React.FC = () => {
     updateProgress();
     checkStudyStreak();
     updateBadges();
+  }, []);
+
+  useEffect(() => {
+    const progress = loadProgress();
+    setCompletedChapters(progress.completedChapters);
   }, []);
 
   const updateProgress = () => {
@@ -181,6 +186,23 @@ const Dashboard: React.FC = () => {
     updateBadges();
   };
 
+  const handleMarkIncomplete = (chapterId: string) => {
+    // Logic to mark chapter as incomplete
+    const updatedCompletedChapters = completedChapters.filter(id => id !== chapterId);
+    setCompletedChapters(updatedCompletedChapters);
+    updateProgress();
+    updateBadges();
+  };
+
+  // Add a toggle function to handle both marking complete and incomplete
+  const toggleChapterCompletion = (chapterId: string) => {
+    if (completedChapters.includes(chapterId)) {
+      handleMarkIncomplete(chapterId);
+    } else {
+      handleMarkComplete(chapterId);
+    }
+  };
+
   const toggleExpand = (chapterId: string) => {
     if (expandedChapters.includes(chapterId)) {
       setExpandedChapters(expandedChapters.filter(id => id !== chapterId));
@@ -220,6 +242,11 @@ const Dashboard: React.FC = () => {
   const toggleView = () => {
     setView(view === 'grid' ? 'list' : 'grid');
   };
+
+  // Debugging log to monitor changes in completedChapters state
+  useEffect(() => {
+    console.log("Completed Chapters:", completedChapters);
+  }, [completedChapters]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-background/90">
@@ -288,8 +315,6 @@ const Dashboard: React.FC = () => {
                 Resume Learning
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              
-              <ThemeToggle />
               
               <Button 
                 variant="outline" 
@@ -414,15 +439,22 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       {completedChapters.includes(chapter.id) ? (
-                        <div className="p-1 rounded-full bg-green-500/80 text-white">
-                          <BookCheck className="h-4 w-4" />
-                        </div>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleChapterCompletion(chapter.id);
+                          }}
+                          className="text-xs bg-gradient-to-r from-red-600 to-red-800"
+                        >
+                          Mark Incomplete
+                        </Button>
                       ) : (
                         <Button
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleMarkComplete(chapter.id);
+                            toggleChapterCompletion(chapter.id);
                           }}
                           className="text-xs bg-gradient-to-r from-primary to-violet-600"
                         >

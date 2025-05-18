@@ -17,9 +17,6 @@ export default function Hero() {
       <div className="container px-4 md:px-6">
         <div className="flex flex-col items-center space-y-4 text-center">
           <div className="space-y-2 animate-slide-up">
-            <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm text-primary mb-4 animate-pulse-subtle">
-              Trusted by the world&apos;s most innovative companies
-            </div>
             <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none gradient-text">
               Operating Systems, Visualized
             </h1>
@@ -30,7 +27,7 @@ export default function Hero() {
           </div>
           <div className="space-x-4 mt-8 animate-slide-up" style={{ animationDelay: "0.2s" }}>
             <Button asChild size="lg" className="group gradient-border">
-              <Link href="/page-replacement">
+              <Link href="/dashboard">
                 Start Learning Visually
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
