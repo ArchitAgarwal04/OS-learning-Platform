@@ -30,8 +30,8 @@ OSimulate is an interactive platform for learning core Operating System concepts
 ### Installation
 Fork and Clone the repository:
 ```bash
-git clone https://github.com/your-username/OS-learning-Platform.git
-cd OS-learning-Platform
+git clone https://github.com/your-username/OSimulate.git
+cd OSimulate
 ```
 
 Install dependencies:
