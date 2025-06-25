@@ -7,6 +7,7 @@ import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 import { AnimatedBackground } from "@/components/animated-background"
 import { AuthProvider } from "@/contexts/auth-context"
+import GoogleAnalytics from "@/components/google-analytics"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -23,6 +24,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <GoogleAnalytics />
+      </head>
       <body className={`${inter.className} min-h-screen flex flex-col`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>

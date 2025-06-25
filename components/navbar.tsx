@@ -272,10 +272,16 @@ export default function Navbar() {
             </Link>
             */}
              {user ? (
-              <Button variant="outline" onClick={handleSignOut} className="flex items-center gap-2 p-2 hover:bg-muted rounded-md w-full justify-start">
+              <button
+                onClick={() => {
+                  handleSignOut()
+                  setIsMenuOpen(false)
+                }}
+                className="flex items-center gap-2 p-2 hover:bg-muted rounded-md transition-colors text-left w-full"
+              >
                 <LogOut className="h-5 w-5" />
                 <span>Sign Out</span>
-              </Button>
+              </button>
             ) : (
               <div className="flex flex-col gap-2 mt-2">
                 <Button variant="outline" asChild>

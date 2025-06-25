@@ -5,6 +5,7 @@ import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { DatabaseService } from '@/lib/database'
 import { useRouter, usePathname } from 'next/navigation'
+import { trackAuthEvent } from '@/lib/analytics'
 
 interface AuthContextType {
   user: User | null
@@ -93,6 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(newSession)
         setUser(newSession.user)
         
+        // Track login with Google Analytics
+        trackAuthEvent('login');
+        
         try {
           console.log('User signed in, creating/updating profile...')
           await DatabaseService.createOrUpdateProfile(newSession.user.id, {
@@ -154,6 +158,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error signing out:', error.message)
         return
       }
+      
+      // Track user logout with Google Analytics
+      trackAuthEvent('logout');
       
       // Clear state
       setUser(null)

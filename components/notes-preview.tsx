@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, BookOpen, HardDrive, Cpu, Layers } from "lucide-react"
+import { trackNoteView } from "@/lib/analytics"
 
 export default function NotesPreview() {
   const topics = [

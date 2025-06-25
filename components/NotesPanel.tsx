@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Save, X } from "lucide-react";
 import { Note, getNotesByChapter, addNote, updateNote, deleteNote } from "@/utils/notesService";
 import { formatDistanceToNow } from "date-fns";
+import { trackNoteView } from "@/lib/analytics";
 
 interface NotesPanelProps {
   chapterId: string;
@@ -33,6 +34,9 @@ const NotesPanel: React.FC<NotesPanelProps> = ({ chapterId, onClose }) => {
     setActiveNoteId(note.id);
     setEditedContent(note.content);
     setIsEditing(true);
+    
+    // Track note view with Google Analytics
+    trackNoteView(`${chapterId}-${note.id}`);
   };
 
   const handleSaveNote = () => {

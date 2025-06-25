@@ -1,4 +1,3 @@
-
 'use client'
 
 import { useState, useEffect } from "react"
@@ -9,6 +8,7 @@ import { Card } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChevronRight, ChevronLeft, Play, Pause, RotateCcw, Plus, Trash, Cpu, Clock, Zap } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { trackVisualization } from "@/lib/analytics"
 
 type Process = {
   id: string
@@ -111,6 +111,8 @@ export default function CPUSchedulingVisualizer() {
           });
         } else {
           setIsPlaying(false);
+          // Track visualization completion
+          trackVisualization(algorithm, 'complete');
         }
       }, animationSpeed);
     }
@@ -122,6 +124,9 @@ export default function CPUSchedulingVisualizer() {
 
   // Run the selected algorithm
   const runSimulation = () => {
+    // Track the start of a new simulation
+    trackVisualization(algorithm, 'start');
+    
     let result: SimulationResult | undefined;
 
     if (algorithm === "fcfs") {
@@ -339,7 +344,15 @@ export default function CPUSchedulingVisualizer() {
   };
 
   const togglePlayPause = () => {
-    setIsPlaying(!isPlaying);
+    const newPlayingState = !isPlaying;
+    setIsPlaying(newPlayingState);
+    
+    // Track visualization interaction with Google Analytics
+    if (newPlayingState) {
+      trackVisualization(algorithm, 'start');
+    } else {
+      trackVisualization(algorithm, 'interact');
+    }
   };
 
   // Navigation functions

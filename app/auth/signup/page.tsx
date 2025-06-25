@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Brain, Settings, BarChart3, Users, Link as LinkIcon, Eye, CheckCircle, XCircle } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { trackAuthEvent } from '@/lib/analytics'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -25,12 +26,15 @@ export default function SignUpPage() {
         if (session?.user?.email_confirmed_at) {
           setAuthMessage({ type: 'success', message: 'Successfully signed in! Redirecting...' })
           toast.success('Successfully signed in!')
+          // No need to track login here as it's already tracked in auth context
           setTimeout(() => {
             router.push('/dashboard')
           }, 1500)
         } else {
           setAuthMessage({ type: 'success', message: 'Account created successfully! Please check your email for a confirmation link.' })
           toast.success('Account created! Check your email.')
+          // Track signup event
+          trackAuthEvent('signup')
         }
       }
     })
