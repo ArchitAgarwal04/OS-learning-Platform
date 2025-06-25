@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ModeToggle } from "./mode-toggle"
 import { CommandPalette } from "./command-palette"
 import { Menu, X, Cpu, HardDrive, BookOpen, Home, ChevronDown, BarChart3, Layers, FileText, LogOut, User, Crown } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,14 +23,60 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const { user, signOut } = useAuth()
+  const { toast } = useToast()
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
   }
 
   const handleSignOut = async () => {
-    await signOut()
+    // Set a maximum wait time for the logout process
+    const logoutTimeout = 5000; // 5 seconds
+    let timeoutId: NodeJS.Timeout | null = null;
+    
+    try {
+      setIsLoggingOut(true);
+      
+      // Show toast to indicate logout process started
+      toast({
+        title: "Logging out",
+        description: "Please wait while we sign you out...",
+        duration: 3000,
+      });
+      
+      // Create a race between the signOut function and a timeout
+      await Promise.race([
+        signOut(),
+        new Promise((_, reject) => {
+          timeoutId = setTimeout(() => {
+            reject(new Error('Logout timed out'));
+          }, logoutTimeout);
+        })
+      ]);
+      
+      // Success toast will be shown after redirection
+      
+    } catch (error) {
+      console.error('Error signing out:', error);
+      
+      // Show error toast if logout fails
+      toast({
+        title: "Sign out issue",
+        description: "There was a problem signing out. You have been logged out locally.",
+        variant: "destructive",
+        duration: 5000,
+      });
+      
+      // Force clear the session on error
+      window.localStorage.removeItem('supabase.auth.token');
+      window.location.href = '/';
+    } finally {
+      // Clear the timeout if it exists
+      if (timeoutId) clearTimeout(timeoutId);
+      setIsLoggingOut(false);
+    }
   }
 
   useEffect(() => {
@@ -184,9 +231,28 @@ export default function Navbar() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+                  <DropdownMenuItem 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleSignOut();
+                    }}
+                    disabled={isLoggingOut}
+                    className="cursor-pointer text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950 focus:bg-red-50 dark:focus:bg-red-950 transition-colors"
+                  >
+                    {isLoggingOut ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Logging out...</span>
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>Log out</span>
+                      </>
+                    )}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -273,14 +339,28 @@ export default function Navbar() {
             */}
              {user ? (
               <button
-                onClick={() => {
-                  handleSignOut()
-                  setIsMenuOpen(false)
+                onClick={async () => {
+                  // Don't close menu immediately to show loading state
+                  await handleSignOut();
+                  setIsMenuOpen(false);
                 }}
-                className="flex items-center gap-2 p-2 hover:bg-muted rounded-md transition-colors text-left w-full"
+                disabled={isLoggingOut}
+                className="flex items-center gap-2 p-3 hover:bg-red-50 dark:hover:bg-red-950 text-red-500 dark:text-red-400 rounded-md transition-colors text-left w-full mt-2 border border-red-200 dark:border-red-900 disabled:opacity-50"
               >
-                <LogOut className="h-5 w-5" />
-                <span>Sign Out</span>
+                {isLoggingOut ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="font-medium">Logging out...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="h-5 w-5" />
+                    <span className="font-medium">Sign Out</span>
+                  </>
+                )}
               </button>
             ) : (
               <div className="flex flex-col gap-2 mt-2">

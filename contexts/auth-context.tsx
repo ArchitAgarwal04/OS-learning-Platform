@@ -136,11 +136,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Handle sign out
       if (event === 'SIGNED_OUT') {
+        console.log('Auth state: SIGNED_OUT event received');
+        
+        // Clear state immediately on sign out
         setSession(null)
         setUser(null)
+        
         // Redirect to home page on sign out if on a protected page
         if (pathname && !pathname.startsWith('/auth') && pathname !== '/') {
+          console.log('Redirecting to home after sign out');
           router.push('/')
+        }
+      }
+      
+      // Handle other auth events that might need attention
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('Auth state: PASSWORD_RECOVERY event received');
+      }
+      
+      if (event === 'USER_UPDATED') {
+        console.log('Auth state: USER_UPDATED event received');
+        // Update the user object if we have a session
+        if (newSession) {
+          setSession(newSession)
+          setUser(newSession.user)
         }
       }
     })
@@ -151,25 +170,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, router])
 
-  const signOut = async () => {
+  // Helper function to forcefully clear auth state locally
+  const forceLocalSignOut = () => {
+    // Clear state
+    setUser(null);
+    setSession(null);
+    
+    // Clear any Supabase session data from localStorage
     try {
-      const { error } = await supabase.auth.signOut()
-      if (error) {
-        console.error('Error signing out:', error.message)
-        return
+      // Remove Supabase tokens from localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('supabase.auth.') || key.startsWith('sb-'))) {
+          localStorage.removeItem(key);
+        }
       }
+      console.log('Cleared local auth state');
+    } catch (e) {
+      console.error('Error clearing localStorage:', e);
+    }
+  };
+  
+  const signOut = async () => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    
+    try {
+      // Set a timeout to force completion if Supabase takes too long
+      const signOutPromise = new Promise<void>((resolve, reject) => {
+        // Attempt to sign out with Supabase
+        supabase.auth.signOut()
+          .then(({ error }) => {
+            if (error) {
+              console.error('Error signing out:', error.message);
+              reject(error);
+            } else {
+              resolve();
+            }
+          })
+          .catch(reject);
+        
+        // Set a timeout to resolve after 3 seconds if Supabase is stuck
+        timeoutId = setTimeout(() => {
+          console.warn('Sign out operation timed out after 3 seconds, forcing completion');
+          resolve();
+        }, 3000);
+      });
+      
+      // Wait for signout or timeout
+      await signOutPromise;
       
       // Track user logout with Google Analytics
       trackAuthEvent('logout');
       
-      // Clear state
-      setUser(null)
-      setSession(null)
+      // Force local signout regardless of what happened with Supabase
+      forceLocalSignOut();
       
       // Force redirect to home
-      router.push('/')
+      router.push('/');
     } catch (err: any) {
-      console.error('Error in signOut:', err.message)
+      console.error('Error in signOut:', err.message);
+      
+      // Force local signout even on error to ensure the user can log out
+      forceLocalSignOut();
+      
+      router.push('/');
+    } finally {
+      // Clear the timeout if it exists
+      if (timeoutId) clearTimeout(timeoutId);
     }
   }
 
