@@ -1,8 +1,12 @@
+"use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function Hero() {
+  const { user } = useAuth()
   return (
     <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 relative overflow-hidden">
       {/* Decorative elements */}
@@ -26,15 +30,31 @@ export default function Hero() {
             </p>
           </div>
           <div className="space-x-4 mt-8 animate-slide-up" style={{ animationDelay: "0.2s" }}>
-            <Button asChild size="lg" className="group gradient-border">
-              <Link href="/dashboard">
-                Start Learning Visually
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </Button>
-            <Button variant="outline" size="lg" asChild>
-              <Link href="/notes">Explore Notes</Link>
-            </Button>
+            {user ? (
+              <>
+                <Button asChild size="lg" className="group gradient-border">
+                  <Link href="/dashboard">
+                    Continue Learning
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Button>
+                <Button variant="outline" size="lg" asChild>
+                  <Link href="/notes">Explore Notes</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button asChild size="lg" className="group gradient-border">
+                  <Link href="/auth/signup">
+                    Start Learning Visually
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Link>
+                </Button>
+                <Button variant="outline" size="lg" asChild>
+                  <Link href="/auth/login">Login</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Feature highlights */}

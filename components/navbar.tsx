@@ -7,21 +7,29 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { ModeToggle } from "./mode-toggle"
 import { CommandPalette } from "./command-palette"
-import { Menu, X, Cpu, HardDrive, BookOpen, Home, ChevronDown, BarChart3, Layers, FileText } from "lucide-react"
+import { Menu, X, Cpu, HardDrive, BookOpen, Home, ChevronDown, BarChart3, Layers, FileText, LogOut, User, Crown } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuGroup,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/contexts/auth-context"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const { user, signOut } = useAuth()
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen)
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
   }
 
   useEffect(() => {
@@ -89,7 +97,7 @@ export default function Navbar() {
                 <DropdownMenuItem asChild>
                   <Link href="/comparison" className="flex items-center gap-2 cursor-pointer">
                     <BarChart3 className="h-4 w-4" />
-                    <span>Algorithm Comparison</span>
+                    <span>Comparison</span>
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
@@ -139,6 +147,12 @@ export default function Navbar() {
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+          {/* Premium Link - COMMENTED OUT FOR TESTING */}
+          {/* 
+          <Link href="/payment" className="text-sm font-medium hover:text-primary transition-colors">
+            Premium
+          </Link>
+          */}
         </nav>
 
         <div className="flex items-center gap-4">
@@ -146,9 +160,46 @@ export default function Navbar() {
             <CommandPalette />
           </div>
           <ModeToggle />
-          <Button asChild className="hidden md:inline-flex">
-            <Link href="/dashboard">Start Learning</Link>
-          </Button>
+           {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.user_metadata?.avatar_url} alt={user.email} />
+                      <AvatarFallback>
+                        {user.email?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {user.user_metadata?.full_name || 'User'}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="hidden md:flex items-center gap-2">
+                <Button variant="outline" asChild>
+                  <Link href="/auth/login">Login</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/auth/signup">Sign Up</Link>
+                </Button>
+              </div>
+            )}
 
           {/* Mobile Menu Button */}
           <button className="md:hidden" onClick={toggleMenu}>
@@ -209,11 +260,36 @@ export default function Navbar() {
               <BookOpen className="h-5 w-5" />
               <span>Notes</span>
             </Link>
-            <Button asChild className="mt-2">
-              <Link href="/page-replacement" onClick={() => setIsMenuOpen(false)}>
-                Start Learning
-              </Link>
-            </Button>
+            {/* Premium Link - COMMENTED OUT FOR TESTING */}
+            {/*
+            <Link
+              href="/payment"
+              className="flex items-center gap-2 p-2 hover:bg-muted rounded-md"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <Crown className="h-5 w-5" />
+              <span>Premium</span>
+            </Link>
+            */}
+             {user ? (
+              <Button variant="outline" onClick={handleSignOut} className="flex items-center gap-2 p-2 hover:bg-muted rounded-md w-full justify-start">
+                <LogOut className="h-5 w-5" />
+                <span>Sign Out</span>
+              </Button>
+            ) : (
+              <div className="flex flex-col gap-2 mt-2">
+                <Button variant="outline" asChild>
+                  <Link href="/auth/login" onClick={() => setIsMenuOpen(false)}>
+                    Login
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/auth/signup" onClick={() => setIsMenuOpen(false)}>
+                    Sign Up
+                  </Link>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}

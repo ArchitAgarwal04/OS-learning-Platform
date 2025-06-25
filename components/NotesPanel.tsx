@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Save, X } from "lucide-react";
@@ -199,4 +198,4 @@ const NotesPanel: React.FC<NotesPanelProps> = ({ chapterId, onClose }) => {
   );
 };
 
-export default NotesPanel;
+export { NotesPanel };
