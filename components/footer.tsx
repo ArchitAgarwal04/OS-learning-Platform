@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Cpu, Github, Twitter } from "lucide-react"
+import { Cpu, Github } from "lucide-react"
 
 export default function Footer() {
   return (
@@ -31,7 +31,7 @@ export default function Footer() {
             className="text-muted-foreground hover:text-foreground"
           >
             <Github className="h-5 w-5" />
-            <span className="sr-only">GitHub</span>
+            <span className="sr-only">OSimulate GitHub repository</span>
           </Link>
         </div>
       </div>

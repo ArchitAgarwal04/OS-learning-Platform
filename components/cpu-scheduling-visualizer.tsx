@@ -651,7 +651,7 @@ export default function CPUSchedulingVisualizer() {
                   onChange={(e) => setAnimationSpeed(Number(e.target.value))}
                   className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer"
                   title="Animation Speed Control"
-                  aria-label="Adjust animation speed"
+                  aria-labelledby="animationSpeedLabel"
                 />
                 <div className="text-center text-sm font-mono text-purple-600">
                   {animationSpeed}ms
