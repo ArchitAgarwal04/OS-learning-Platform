@@ -1,4 +1,5 @@
 # OSimulate
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OSimulate/OSimulate)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/OSimulate/OSimulate?utm_source=oss&utm_medium=github&utm_campaign=OSimulate%2FOSimulate&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 [![Netlify Status](https://api.netlify.com/api/v1/badges/85915b75-a977-4f0d-88ad-f346d86a01cd/deploy-status)](https://app.netlify.com/projects/osimulate/deploys)
 
@@ -18,17 +19,22 @@ OSimulate is an interactive platform for learning core Operating System concepts
 
 ## Tech Stack
 
-- **Framework**: [Next.js](https://nextjs.org/) (React, TypeScript)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/), [Radix UI](https://www.radix-ui.com/)
-- **Visualization**: [Recharts](https://recharts.org/), [Framer Motion](https://www.framer.com/motion/)
-- **Other Libraries**: Lucide Icons, React Hook Form, and more (see `package.json`)
+- **Framework**: [Next.js 15.2.4](https://nextjs.org/) — built on [React 19.1.0](https://react.dev/) and [TypeScript 5.8.3](https://www.typescriptlang.org/)
+- **Styling & UI**: [Tailwind CSS 3.4.17](https://tailwindcss.com/), [Radix UI](https://www.radix-ui.com/), [Lucide React Icons](https://lucide.dev/)
+- **Visualization & Animation**: [Framer Motion 12.16.0](https://www.framer.com/motion/), [Recharts](https://recharts.org/)
+- **Backend & Payments**: [Supabase 2.49.9](https://supabase.com/), [Stripe](https://stripe.com/)
+- **Forms & Validation**: [React Hook Form 7.57.0](https://react-hook-form.com/), [Zod 3.25.49](https://zod.dev/)
+- **Tooling**: [pnpm](https://pnpm.io/) — workspace-aware, fast package manager
+
+> See `package.json` for the full list of dependencies.
 
 ## Getting Started
 
 ### Prerequisites
 - Node.js (v18 or higher recommended)
 - npm
-
+- pnpm
+  
 ### Installation
 Fork and Clone the repository:
 ```bash
@@ -36,16 +42,21 @@ git clone https://github.com/your-username/OSimulate.git
 cd OSimulate
 ```
 
+Install pnpm globally if you haven't already
+```bash
+npm install -g @pnpm/exe@latest-10
+```
+
 Install dependencies:
 ```bash
-npm install 
+pnpm install 
 ```
 
 ### Running Locally
 
 Start the development server:
 ```bash
-npm run dev 
+pnpm dev 
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the app.
