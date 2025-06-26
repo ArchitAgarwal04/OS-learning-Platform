@@ -1,5 +1,6 @@
 # OSimulate
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/OSimulate/OSimulate?utm_source=oss&utm_medium=github&utm_campaign=OSimulate%2FOSimulate&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/85915b75-a977-4f0d-88ad-f346d86a01cd/deploy-status)](https://app.netlify.com/projects/osimulate/deploys)
 
 **Learn Operating Systems Visually**
 
