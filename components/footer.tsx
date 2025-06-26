@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Cpu, Github, Twitter } from "lucide-react"
+import { Cpu, Github } from "lucide-react"
 
 export default function Footer() {
   return (
@@ -25,22 +25,13 @@ export default function Footer() {
         </nav>
         <div className="flex items-center gap-3">
           <Link
-            href="https://github.com"
+            href="https://github.com/OSimulate/OSimulate"
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-foreground"
           >
             <Github className="h-5 w-5" />
-            <span className="sr-only">GitHub</span>
-          </Link>
-          <Link
-            href="https://twitter.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <Twitter className="h-5 w-5" />
-            <span className="sr-only">Twitter</span>
+            <span className="sr-only">OSimulate GitHub repository</span>
           </Link>
         </div>
       </div>
