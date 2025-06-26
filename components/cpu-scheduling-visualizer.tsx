@@ -640,7 +640,9 @@ export default function CPUSchedulingVisualizer() {
             <Card className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950 dark:to-indigo-950">
               <p className="text-sm font-medium mb-2">Animation Speed</p>
               <div className="space-y-2">
+                <Label htmlFor="animationSpeed" className="sr-only">Animation Speed</Label>
                 <input
+                  id="animationSpeed"
                   type="range"
                   min="100"
                   max="2000"
@@ -648,6 +650,8 @@ export default function CPUSchedulingVisualizer() {
                   value={animationSpeed}
                   onChange={(e) => setAnimationSpeed(Number(e.target.value))}
                   className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer"
+                  title="Animation Speed Control"
+                  aria-label="Adjust animation speed"
                 />
                 <div className="text-center text-sm font-mono text-purple-600">
                   {animationSpeed}ms
